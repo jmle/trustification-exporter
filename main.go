@@ -5,22 +5,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/segmentio/kafka-go"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type Message struct {
 	Key string `json:"Key"`
 }
 
+type Bus interface {
+	NewListener() Bus
+	Read() Message
+}
+
+// TODO: only act on put for the moment
+// TODO: use goroutines?
+// TODO: generic messaging bus interface (kafka/sqs)
+// TODO: generic storage interface (s3/minio)
 func main() {
 	kafkaTopic := os.Getenv("KAFKA_TOPIC")
 	kafkaHostname := os.Getenv("KAFKA_HOSTNAME")
@@ -48,7 +57,18 @@ func main() {
 			fmt.Println("Error parsing JSON:", err)
 		}
 
-		handleMessage(minioHostname, msg.Key)
+		info := strings.Split(msg.Key, "/")
+		if len(info) < 2 {
+			fmt.Printf("Skipping message with key %s: invalid format", msg.Key)
+			return
+		}
+
+		bucket := info[0]
+		item := info[1]
+
+		downloadFile(minioHostname, bucket, item)
+		ingestFile(item)
+		removeFile(item)
 	}
 
 	if err := r.Close(); err != nil {
@@ -56,56 +76,21 @@ func main() {
 	}
 }
 
-func handleMessage(hostname string, key string) {
-	fmt.Printf("Handling message with %s", key)
-
-	info := strings.Split(key, "/")
-	if len(info) < 2 {
-		fmt.Printf("Skipping message with key %s: invalid format", key)
+func removeFile(item string) {
+	err := os.Remove(item)
+	if err != nil {
+		fmt.Printf("Error removing downloaded file: %s", err)
 		return
 	}
+}
 
-	bucket := info[0]
-	item := info[1]
-
-	addr := fmt.Sprintf(hostname+":9000/%s", bucket)
-
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String("us-east-1"), // TODO: Default minio region - make configurable
-		Endpoint:    &addr,
-		DisableSSL:  aws.Bool(true),
-		Credentials: credentials.NewEnvCredentials(),
-	})
-	if err != nil {
-		exitErrorf("Error creating session: %s", err)
-	}
-
-	downloader := s3manager.NewDownloader(sess)
-
-	file, err := os.Create(item)
-	if err != nil {
-		exitErrorf("Unable to open file %q, %v", item, err)
-	}
-
-	defer file.Close()
-
-	numBytes, err := downloader.Download(file,
-		&s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(item),
-		})
-	if err != nil {
-		exitErrorf("Unable to download item %q, %v", item, err)
-	}
-
-	fmt.Printf("Downloaded %s, %d bytes\n", file.Name(), numBytes)
-
+func ingestFile(item string) {
 	cmd := exec.Command("./guacone", "collect", "files", item)
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
 		return
@@ -119,7 +104,38 @@ func handleMessage(hostname string, key string) {
 	}
 }
 
-func exitErrorf(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg+"\n", args...)
-	os.Exit(1)
+func downloadFile(hostname string, bucket string, item string) {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		fmt.Println("Error loading AWS SDK config:", err)
+		return
+	}
+
+	addr := fmt.Sprintf("http://" + hostname + ":9000/" + bucket)
+	cfg.Region = "us-east-1"
+
+	// Create an S3 client
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(addr)
+	})
+
+	// Create a context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Create the local file to save the downloaded content
+	file, err := os.Create(item)
+	if err != nil {
+		fmt.Println("Error creating file:", err)
+		return
+	}
+	defer file.Close()
+
+	downloader := manager.NewDownloader(client)
+	numBytes, err := downloader.Download(ctx, file, &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(item),
+	})
+
+	fmt.Printf("File downloaded successfully! Downloaded %d bytes", numBytes)
 }
