@@ -3,101 +3,40 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/segmentio/kafka-go"
-	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 )
 
-type Message struct {
-	Key string `json:"Key"`
-}
-
-type Bus interface {
-	NewListener() Bus
-	Read() Message
-}
-
 // TODO: only act on put for the moment
 // TODO: use goroutines?
-// TODO: generic messaging bus interface (kafka/sqs)
-// TODO: generic storage interface (s3/minio)
 func main() {
-	kafkaTopic := os.Getenv("KAFKA_TOPIC")
-	kafkaHostname := os.Getenv("KAFKA_HOSTNAME")
 	minioHostname := os.Getenv("MINIO_HOSTNAME")
 
-	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{kafkaHostname + ":9092"},
-		Topic:     kafkaTopic,
-		Partition: 0,
-		MaxBytes:  10e6,
-	})
-	r.SetOffset(kafka.LastOffset)
-
+	mp, _ := GetMessageProvider()
 	for {
-		m, err := r.ReadMessage(context.Background())
+		m, err := mp.ReceiveMessage()
 		if err != nil {
-			fmt.Println(err.Error())
-			break
-		}
-		fmt.Printf("Message at offset %d: %s = %s\n", m.Offset, string(m.Key), string(m.Value))
-
-		var msg Message
-		err = json.Unmarshal(m.Value, &msg)
-		if err != nil {
-			fmt.Println("Error parsing JSON:", err)
+			fmt.Println("Error")
 		}
 
-		info := strings.Split(msg.Key, "/")
-		if len(info) < 2 {
-			fmt.Printf("Skipping message with key %s: invalid format", msg.Key)
-			return
-		}
+		fmt.Println(m)
 
-		bucket := info[0]
-		item := info[1]
-
-		downloadFile(minioHostname, bucket, item)
-		ingestFile(item)
-		removeFile(item)
+		downloadFile(minioHostname, m.GetBucket(), m.GetItem())
+		//ingestFile(item)
+		//removeFile(item)
 	}
 
-	if err := r.Close(); err != nil {
-		log.Fatal("Failed to close reader:", err)
-	}
+	mp.Close()
 }
 
 func removeFile(item string) {
 	err := os.Remove(item)
-	if err != nil {
-		fmt.Printf("Error removing downloaded file: %s", err)
-		return
-	}
-}
-
-func ingestFile(item string) {
-	cmd := exec.Command("./guacone", "collect", "files", item)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
-		return
-	}
-	fmt.Printf("Ingested %s", out.String())
-
-	err = os.Remove(item)
 	if err != nil {
 		fmt.Printf("Error removing downloaded file: %s", err)
 		return
@@ -137,5 +76,25 @@ func downloadFile(hostname string, bucket string, item string) {
 		Key:    aws.String(item),
 	})
 
-	fmt.Printf("File downloaded successfully! Downloaded %d bytes", numBytes)
+	fmt.Printf("File downloaded successfully! Downloaded %d bytes\n", numBytes)
+}
+
+func ingestFile(item string) {
+	cmd := exec.Command("./guacone", "collect", "files", item)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println(fmt.Sprint(err) + ": " + stderr.String())
+		return
+	}
+	fmt.Printf("Ingested %s", out.String())
+
+	err = os.Remove(item)
+	if err != nil {
+		fmt.Printf("Error removing downloaded file: %s", err)
+		return
+	}
 }
