@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  localstack:
+    container_name: localstack
+    image: localstack/localstack:2.2.0
+    ports:
+      - "4566-4599:4566-4599"
+    environment:
+      - SERVICES=sqs,s3
+    volumes:
+      - ./init-scripts:/etc/localstack/init/ready.d
+      - ./data:/data

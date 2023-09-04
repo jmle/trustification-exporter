@@ -27,6 +27,7 @@ func main() {
 
 		fmt.Println(m)
 
+		time.Sleep(3 * time.Second)
 		downloadFile(minioHostname, m.GetBucket(), m.GetItem())
 		//ingestFile(item)
 		//removeFile(item)
@@ -50,7 +51,8 @@ func downloadFile(hostname string, bucket string, item string) {
 		return
 	}
 
-	addr := fmt.Sprintf("http://" + hostname + ":9000/" + bucket)
+	//addr := fmt.Sprintf("http://" + hostname + ":9000/" + bucket)
+	addr := fmt.Sprintf("http://%s:4566/%s/", hostname, bucket)
 	cfg.Region = "us-east-1"
 
 	// Create an S3 client
@@ -75,6 +77,11 @@ func downloadFile(hostname string, bucket string, item string) {
 		Bucket: aws.String(bucket),
 		Key:    aws.String(item),
 	})
+
+	if err != nil {
+		fmt.Printf("Error: %s", err)
+		return
+	}
 
 	fmt.Printf("File downloaded successfully! Downloaded %d bytes\n", numBytes)
 }

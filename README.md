@@ -1,3 +1,25 @@
+### Compiling
+```bash
+go build .
+```
+
+### Running
+
+
+### Localstack
+This project uses localstack to test locally against SQS and S3.
+
+1. Run docker-compose
+```bash
+cd docker-compose
+docker-compose up
+```
+2. Upload a document to a bucket. This can be done by either installing the aws CLI in your local machine, or by `docker exec`ing into the running localstack container.
+```bash
+aws --endpoint-url=http://localhost:4566 s3api put-object --bucket <bucket name> --key <name of file in bucket> --body <file to be uploaded>
+```
+3. Uploading a document to S3 will trigger a notification
+
 ### Podman
 #### Run
 ```
