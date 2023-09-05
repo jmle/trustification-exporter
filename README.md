@@ -57,7 +57,7 @@ SSL is deactivated for MinIO, so only HTTP will work. In order to activate SSL:
 ### AWS credentials file
 ```
 [default]
-aws_access_key_id = key id
-aws_secret_access_key = access key
+aws_access_key_id=key_id
+aws_secret_access_key=access_key
 ```
 
