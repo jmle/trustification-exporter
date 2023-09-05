@@ -13,22 +13,23 @@ import (
 	"time"
 )
 
-// TODO: only act on put for the moment
 // TODO: use goroutines?
 func main() {
-	minioHostname := os.Getenv("MINIO_HOSTNAME")
+	s3hostname := CheckAndReturn("S3_HOSTNAME")
+	s3port := CheckAndReturn("S3_PORT")
 
 	mp, _ := GetMessageProvider()
 	for {
 		m, err := mp.ReceiveMessage()
 		if err != nil {
-			fmt.Println("Error")
+			fmt.Printf("Error while receiving message: %s\n", err)
+			continue
+		}
+		if m.GetEvent() != PUT {
+			continue
 		}
 
-		fmt.Println(m)
-
-		time.Sleep(3 * time.Second)
-		downloadFile(minioHostname, m.GetBucket(), m.GetItem())
+		downloadFile(s3hostname, s3port, m.GetBucket(), m.GetItem())
 		//ingestFile(item)
 		//removeFile(item)
 	}
@@ -44,7 +45,7 @@ func removeFile(item string) {
 	}
 }
 
-func downloadFile(hostname string, bucket string, item string) {
+func downloadFile(hostname string, port string, bucket string, item string) {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		fmt.Println("Error loading AWS SDK config:", err)
@@ -52,7 +53,7 @@ func downloadFile(hostname string, bucket string, item string) {
 	}
 
 	//addr := fmt.Sprintf("http://" + hostname + ":9000/" + bucket)
-	addr := fmt.Sprintf("http://%s:4566/%s/", hostname, bucket)
+	addr := fmt.Sprintf("http://%s:%s/%s/", hostname, port, bucket)
 	cfg.Region = "us-east-1"
 
 	// Create an S3 client
@@ -67,7 +68,7 @@ func downloadFile(hostname string, bucket string, item string) {
 	// Create the local file to save the downloaded content
 	file, err := os.Create(item)
 	if err != nil {
-		fmt.Println("Error creating file:", err)
+		fmt.Printf("Error creating file %s: %s", file.Name(), err)
 		return
 	}
 	defer file.Close()
@@ -79,7 +80,7 @@ func downloadFile(hostname string, bucket string, item string) {
 	})
 
 	if err != nil {
-		fmt.Printf("Error: %s", err)
+		fmt.Printf("Error downloading file %s: %s\n", file.Name(), err)
 		return
 	}
 

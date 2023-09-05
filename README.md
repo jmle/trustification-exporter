@@ -4,35 +4,48 @@ go build .
 ```
 
 ### Running
+```bash
+go run .
+```
 
+### Configuration
+Configuration is done through the following environment variables:
+```
+KAFKA_HOSTNAME=localhost;
+KAFKA_PORT=9092;
+KAFKA_TOPIC=sbom-stored;
+MESSAGE_PROVIDER=kafka;
+S3_HOSTNAME=localhost;
+S3_PORT=9000;
+SQS_HOSTNAME=localhost;
+SQS_PORT=4566;
+SQS_QUEUE=sbom-stored
+```
 
-### Localstack
-This project uses localstack to test locally against SQS and S3.
-
+### AWS (Localstack: S3 + SQS)
 1. Run docker-compose
 ```bash
 cd docker-compose
-docker-compose up
+docker-compose -f compose-aws.yaml up
 ```
-2. Upload a document to a bucket. This can be done by either installing the aws CLI in your local machine, or by `docker exec`ing into the running localstack container.
+2. Upload a document to a bucket. This can be done by either installing the aws CLI in your local machine, or by `docker exec`'ing into the running localstack container.
 ```bash
 aws --endpoint-url=http://localhost:4566 s3api put-object --bucket <bucket name> --key <name of file in bucket> --body <file to be uploaded>
 ```
-3. Uploading a document to S3 will trigger a notification
+3. Uploading a document to S3 will trigger a notification onto the SQS queue.
 
-### Podman
-#### Run
+## Local (MinIO + Kafka)
+1. Run docker-compose
+```bash
+cd docker-compose
+docker-compose -f compose-local.yaml up
 ```
-podman run
-   -e KAFKA_TOPIC=sbom-stored
-   -e KAKFA_HOSTNAME=localhost
-   -e MINIO_HOSTNAME=localhost
-   -e AWS_ACCESS_KEY_ID=<access key id>
-   -e AWS_SECRET_ACCESS_KEY=<secret access key>
-   --network host -it localhost/trust-exporter
-```
+2. Log into minio (http://localhost:9001) with credentials `admin/password` and upload a document into a bucket.
+3. An event will be triggered and sent to the Kafka topic.
 
-### SSL in minio
+
+### SSL in MinIO
+SSL is deactivated for MinIO, so only HTTP will work. In order to activate SSL:
 1. Generate or copy certs in minio container
     1. Can use the utility from minio
 2. Add cert to local trust chain (a bit cumbersome?)

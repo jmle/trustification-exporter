@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/segmentio/kafka-go"
 	"log"
-	"os"
 	"strings"
 )
 
@@ -16,7 +15,15 @@ type KafkaProvider struct {
 }
 
 type KafkaMessage struct {
-	Key string `json:"Key"`
+	EventName string `json:"EventName"`
+	Key       string `json:"Key"`
+}
+
+func (m KafkaMessage) GetEvent() EventName {
+	if m.EventName == "s3:ObjectCreated:Put" {
+		return PUT
+	}
+	return ""
 }
 
 func (m KafkaMessage) GetBucket() string {
@@ -38,12 +45,13 @@ func (m KafkaMessage) GetItem() string {
 }
 
 func NewKafkaProvider(config interface{}) (KafkaProvider, error) {
-	kafkaTopic := os.Getenv("KAFKA_TOPIC")
-	kafkaHostname := os.Getenv("KAFKA_HOSTNAME")
+	kafkaTopic := CheckAndReturn("KAFKA_TOPIC")
+	kafkaHostname := CheckAndReturn("KAFKA_HOSTNAME")
+	kafkaPort := CheckAndReturn("KAFKA_PORT")
 
 	kafkaProvider := KafkaProvider{}
 	kafkaProvider.reader = kafka.NewReader(kafka.ReaderConfig{
-		Brokers:   []string{kafkaHostname + ":9092"},
+		Brokers:   []string{fmt.Sprintf("%s:%s", kafkaHostname, kafkaPort)},
 		Topic:     kafkaTopic,
 		Partition: 0,
 		MaxBytes:  10e6,

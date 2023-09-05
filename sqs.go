@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"os"
 )
 
 type SqsProvider struct {
@@ -30,11 +29,19 @@ type SqsS3 struct {
 }
 
 type SqsRecord struct {
-	S3 SqsS3 `json:"s3"`
+	EventName string `json:"eventName"`
+	S3        SqsS3  `json:"s3"`
 }
 
 type SqsMessage struct {
 	Records []SqsRecord `json:"Records"`
+}
+
+func (m SqsMessage) GetEvent() EventName {
+	if m.Records[0].EventName == "ObjectCreated:Put" {
+		return PUT
+	}
+	return ""
 }
 
 func (m SqsMessage) GetBucket() string {
@@ -46,8 +53,9 @@ func (m SqsMessage) GetItem() string {
 }
 
 func NewSqsProvider(options interface{}) (SqsProvider, error) {
-	sqsHostname := os.Getenv("SQS_HOSTNAME")
-	sqsQueue := "sbom-stored"
+	sqsHostname := CheckAndReturn("SQS_HOSTNAME")
+	sqsPort := CheckAndReturn("SQS_PORT")
+	sqsQueue := CheckAndReturn("SQS_QUEUE")
 	sqsProvider := SqsProvider{}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -57,7 +65,7 @@ func NewSqsProvider(options interface{}) (SqsProvider, error) {
 	}
 
 	client := sqs.NewFromConfig(cfg, func(o *sqs.Options) {
-		o.BaseEndpoint = aws.String(fmt.Sprintf("http://%s:4566", sqsHostname))
+		o.BaseEndpoint = aws.String(fmt.Sprintf("http://%s:%s", sqsHostname, sqsPort))
 		o.Region = "us-east-1"
 	})
 	sqsProvider.client = client

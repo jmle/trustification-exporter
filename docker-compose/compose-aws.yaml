@@ -9,4 +9,4 @@ services:
       - SERVICES=sqs,s3
     volumes:
       - ./init-scripts:/etc/localstack/init/ready.d
-      - ./data:/data
+      - ./data:/data  # TODO: remove

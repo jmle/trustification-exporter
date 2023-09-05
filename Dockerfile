@@ -9,7 +9,5 @@ FROM golang:1.21 as exporter
 WORKDIR /export
 COPY --from=build /export .
 COPY --from=guac /opt/guac/guacone .
-# TODO: Pass MinIO credentials as Dockerfile args
-#COPY credentials /root/.aws/
 
 ENTRYPOINT ["/export/export"]
