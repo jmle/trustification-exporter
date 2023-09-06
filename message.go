@@ -19,13 +19,17 @@ type MessageProvider interface {
 	Close() error
 }
 
-// GetMessageProvider Returns a MessageProvider. Defaults to Kafka provider if no MESSAGE_PROVIDER environment variable is found
-func GetMessageProvider() (MessageProvider, error) {
+type MessageProviderConfig struct {
+	queue string
+}
+
+// GetMessageProvider Returns a MessageProvider with the given config. Defaults to Kafka provider if no MESSAGE_PROVIDER environment variable is found
+func GetMessageProvider(config MessageProviderConfig) (MessageProvider, error) {
 	providerOption := os.Getenv("MESSAGE_PROVIDER")
 	switch providerOption {
 	case "sqs":
-		return NewSqsProvider(nil)
+		return NewSqsProvider(config)
 	default:
-		return NewKafkaProvider(nil)
+		return NewKafkaProvider(config)
 	}
 }

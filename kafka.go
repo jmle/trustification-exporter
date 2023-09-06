@@ -44,10 +44,10 @@ func (m KafkaMessage) GetItem() string {
 	return info[1]
 }
 
-func NewKafkaProvider(config interface{}) (KafkaProvider, error) {
-	kafkaTopic := CheckAndReturn("KAFKA_TOPIC")
+func NewKafkaProvider(mpConfig MessageProviderConfig) (KafkaProvider, error) {
 	kafkaHostname := CheckAndReturn("KAFKA_HOSTNAME")
 	kafkaPort := CheckAndReturn("KAFKA_PORT")
+	kafkaTopic := mpConfig.queue
 
 	kafkaProvider := KafkaProvider{}
 	kafkaProvider.reader = kafka.NewReader(kafka.ReaderConfig{

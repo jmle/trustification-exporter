@@ -23,6 +23,7 @@ SQS_QUEUE=sbom-stored
 ```
 
 ### AWS (Localstack: S3 + SQS)
+**NOTE**: At the moment, localstack only works with docker.
 1. Run docker-compose
 ```bash
 cd docker-compose
@@ -34,7 +35,7 @@ aws --endpoint-url=http://localhost:4566 s3api put-object --bucket <bucket name>
 ```
 3. Uploading a document to S3 will trigger a notification onto the SQS queue.
 
-## Local (MinIO + Kafka)
+### Local (MinIO + Kafka)
 1. Run docker-compose
 ```bash
 cd docker-compose

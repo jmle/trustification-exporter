@@ -52,10 +52,10 @@ func (m SqsMessage) GetItem() string {
 	return m.Records[0].S3.Object.Key
 }
 
-func NewSqsProvider(options interface{}) (SqsProvider, error) {
+func NewSqsProvider(mpConfig MessageProviderConfig) (SqsProvider, error) {
 	sqsHostname := CheckAndReturn("SQS_HOSTNAME")
 	sqsPort := CheckAndReturn("SQS_PORT")
-	sqsQueue := CheckAndReturn("SQS_QUEUE")
+	sqsQueue := mpConfig.queue
 	sqsProvider := SqsProvider{}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
