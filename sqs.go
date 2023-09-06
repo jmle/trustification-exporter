@@ -53,8 +53,8 @@ func (m SqsMessage) GetItem() string {
 }
 
 func NewSqsProvider(mpConfig MessageProviderConfig) (SqsProvider, error) {
-	sqsHostname := CheckAndReturn("SQS_HOSTNAME")
-	sqsPort := CheckAndReturn("SQS_PORT")
+	sqsHostname := Config.sqsHostname
+	sqsPort := Config.sqsPort
 	sqsQueue := mpConfig.queue
 	sqsProvider := SqsProvider{}
 

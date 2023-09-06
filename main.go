@@ -9,10 +9,12 @@ import (
 	"sync"
 )
 
+// TODO: tidy up config? maybe get all of it here or somewhere else and pass it around?
+// TODO: check error handling
 func main() {
-	s3hostname := CheckAndReturn("S3_HOSTNAME")
-	s3port := CheckAndReturn("S3_PORT")
-	queues := strings.Split(CheckAndReturn("QUEUES"), ",")
+	InitConfiguration()
+
+	queues := strings.Split(Config.queues, ",")
 
 	var wg sync.WaitGroup
 	for _, queue := range queues {
@@ -30,7 +32,7 @@ func main() {
 					continue
 				}
 
-				DownloadFile(s3hostname, s3port, m.GetBucket(), m.GetItem())
+				DownloadFile(Config.s3Hostname, Config.s3Port, m.GetBucket(), m.GetItem())
 				//ingestFile(item)
 				//removeFile(m.GetItem())
 			}

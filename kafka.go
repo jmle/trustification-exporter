@@ -45,8 +45,8 @@ func (m KafkaMessage) GetItem() string {
 }
 
 func NewKafkaProvider(mpConfig MessageProviderConfig) (KafkaProvider, error) {
-	kafkaHostname := CheckAndReturn("KAFKA_HOSTNAME")
-	kafkaPort := CheckAndReturn("KAFKA_PORT")
+	kafkaHostname := Config.kafkaHostname
+	kafkaPort := Config.kafkaPort
 	kafkaTopic := mpConfig.queue
 
 	kafkaProvider := KafkaProvider{}
