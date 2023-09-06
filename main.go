@@ -9,7 +9,6 @@ import (
 	"sync"
 )
 
-// TODO: tidy up config? maybe get all of it here or somewhere else and pass it around?
 // TODO: check error handling
 func main() {
 	InitConfiguration()
